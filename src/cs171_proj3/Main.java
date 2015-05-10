@@ -8,7 +8,7 @@ import java.util.List;
 /**
  *
  * @author Ricardo Morones <rmorones@umail.ucsb.edu>
- * @author Chris Kim <chriskim@umail.ucsb.edu>
+ * @author Chris Kim <chriskim06@gmail.com>
  */
 public class Main {
     private static final String infile = "site{}.txt";

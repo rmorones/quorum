@@ -14,7 +14,7 @@ import java.util.Random;
 /**
  *
  * @author Ricardo Morones <rmorones@umail.ucsb.edu>
- * @author Chris Kim <chriskim@umail.ucsb.edu>
+ * @author Chris Kim <chriskim06@gmail.com>
  */
 public class Site extends Thread {
     private final int[] serverPorts;
@@ -108,7 +108,7 @@ public class Site extends Thread {
         Socket mysocket;
         myQuorum = randQuorum();  
         for(int i = 0; i < qSize; ++i)
-            System.out.println("read quorum[" + i + "] = " + myQuorum[i]);
+            System.out.println(siteId + ": read quorum[" + i + "] = " + myQuorum[i]);
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
@@ -155,18 +155,20 @@ public class Site extends Thread {
         //send release message to log
         try {
             mysocket = new Socket(serverHostname, 9989);
-            PrintWriter out;
+            ObjectOutputStream out;
             ObjectInputStream in;
             in = new ObjectInputStream(mysocket.getInputStream());
-            out = new PrintWriter(mysocket.getOutputStream());
-            out.write("Release releasing read lock");
+            out = new ObjectOutputStream(mysocket.getOutputStream());
+            out.writeObject("Release ");
+//            out = new PrintWriter(mysocket.getOutputStream());
+//            out.write("Release releasing read lock");
             out.flush();
             //receive ack from log
             String str = (String)in.readObject();
             if(!str.equals("acknowledged")) {
-                    System.out.println("error");
-                    return;
-                }
+                System.out.println("error");
+                return;
+            }
             mysocket.close();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -192,7 +194,7 @@ public class Site extends Thread {
         Socket mysocket;
         myQuorum = randQuorum();
         for(int i = 0; i < qSize; ++i)
-            System.out.println("append quorum[" + i + "] = " + myQuorum[i]);
+            System.out.println(siteId + ": append quorum[" + i + "] = " + myQuorum[i]);
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
@@ -243,9 +245,9 @@ public class Site extends Thread {
             //receive ack from log
             String str = (String)in.readObject();
             if(!str.equals("acknowledged")) {
-                    System.out.println("error");
-                    return;
-                }
+                System.out.println("error");
+                return;
+            }
             mysocket.close();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();

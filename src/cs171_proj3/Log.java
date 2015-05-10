@@ -11,7 +11,7 @@ import java.util.List;
 /**
  *
  * @author Ricardo Morones <rmorones@umail.ucsb.edu>
- * @author Chris Kim <chriskim@umail.ucsb.edu>
+ * @author Chris Kim <chriskim06@gmail.com>
  */
 public class Log extends Thread {
     
@@ -62,14 +62,14 @@ public class Log extends Thread {
                         break;
                     case "Release":
                         //print release message
-                        msg = message.substring(space + 1);
-                        System.out.println(msg);
+                        System.out.println(command);
                         //send ack after communication with site
                         outputStream.writeObject(ACKNOWLEDGE);
                         break;
                     default:
                         break;
                 }
+                outputStream.flush();
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
