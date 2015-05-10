@@ -37,7 +37,6 @@ public class CommunicationThread extends Thread {
         ServerSocket serverSocket;
         Socket mysocket;
         BufferedReader in;
-        PrintWriter out;
         
         try {
           serverSocket = new ServerSocket(port);
@@ -51,60 +50,25 @@ public class CommunicationThread extends Thread {
                 // Wait for a client to connect (blocking)
                 mysocket = serverSocket.accept();
                 in = new BufferedReader(
-                  new InputStreamReader(mysocket.getInputStream()));            
+                        new InputStreamReader(mysocket.getInputStream()));            
                 String input = in.readLine();
-                
-                if(input.contains("DONE")) {
-                    ++expired;
-                    if(expired == site.getNumberOfSites()) {
-                        mysocket.close();
-                        break;
-                    }
+                System.out.println("input " + input);
+                if(input == null) {
+                    continue;
                 }
-                
-                if(!input.equals("")) {
+                    if(input.contains("DONE")) {
+                        ++expired;
+                        if(expired == site.getNumberOfSites()) {
+                            mysocket.close();
+                            break;
+                        }
+                    }
+
                     int firstspace = input.indexOf(" ");
-                    int secondspace = input.indexOf(input.substring(firstspace + 1));
+                    int secondspace = input.indexOf(" ", firstspace + 1);
                     String comp = input.substring(0, secondspace);
+                    System.out.println("comparing " + comp + " in switch");
                     switch(comp) {
-//                        case "request send":
-//                            myQuorum = randQuorum();
-//                            for(int i = 0; i < qSize; ++i) {
-//                                if(myQuorum[i] == site.getSiteId()) { //check local 
-//                                    if(input.contains("read")) {
-//                                        requestedLocks.add("read " + site.getSiteId());
-//                                        if(activeLocks.isEmpty()) {
-//                                            ++received;
-//                                        }
-//                                        else if(containsReadOnly(activeLocks)){
-//                                            ++received;
-//                                        }
-//                                    }
-//                                    else {
-//                                        requestedLocks.add("append " + site.getSiteId());
-//                                        if(activeLocks.isEmpty()) {
-//                                            ++received;
-//                                        }
-//                                    }                                    
-//                                }
-//                                else {
-//                                    Socket siteSocket = new Socket("localhost", site.getServerPorts()[myQuorum[i]]);
-//                                    PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-//                                    if(input.contains("read")) {
-//                                        outSite.write("request reply read " + site.getSiteId());
-//                                    }
-//                                    else {
-//                                        outSite.write("request reply append " + site.getSiteId());
-//                                    }
-//                                    siteSocket.close();
-//                                }
-//                            }
-//                            
-//                            break;
-//                        case "release send":
-//                            //todo: send release to corresponding quorum
-//                            requestedLocks.p();
-//                            break;
                         case "request reply": {
                             //request reply read/append id
                             int thirdspace = input.indexOf(" ", secondspace + 1);
@@ -113,28 +77,64 @@ public class CommunicationThread extends Thread {
                             if(input.contains("read")) {
                                 if(activeLocks.isEmpty() || containsReadOnly(activeLocks)) {
                                     //send grant read id msg
-                                    Socket siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                                    System.out.println(site.getSiteId() + " granting read to " + id);
+                                    Socket siteSocket;
+                                    activeLocks.add(input.substring(secondspace + 1));
+                                    siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                                     PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                                     outSite.write("grant read " + id);
+                                    outSite.flush();
                                     siteSocket.close();
                                 }
                             }
                             else {
                                 if(activeLocks.isEmpty()) {
                                     //send grant append id msg
-                                    Socket siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                                    System.out.println(site.getSiteId() + " granting append to " + id);
+                                    Socket siteSocket;
+                                    activeLocks.add(input.substring(secondspace + 1));
+                                    siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                                     PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                                     outSite.write("grant append " + id);
+                                    outSite.flush();
                                     siteSocket.close();
                                 }
-                                
                             }
-                            
                             
                             break;
                         }
                         case "release reply": {
                             // release reply append/read id
+                            String str = requestedLocks.poll();
+                            if(str == null) {
+                                System.out.println("error requested locks is empty");
+                                return;
+                            }
+                            int index = activeLocks.indexOf(input.substring(secondspace + 1));
+                            if(index >= 0)
+                                activeLocks.remove(index);
+
+                            //check if there are more requests in queue
+                            str = requestedLocks.peek();
+                            if(str != null) {
+                                Integer id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
+                                Socket siteSocket;
+                                siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                                PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
+                                if(str.contains("append")) {
+                                    if(activeLocks.isEmpty()) {
+                                        outSite.write("grant append " + id);
+                                        outSite.flush();
+                                    }
+                                }
+                                else {
+                                    if(activeLocks.isEmpty() || containsReadOnly(activeLocks)) {
+                                        outSite.write("grant read " + id);
+                                        outSite.flush();
+                                    }
+                                }
+                                siteSocket.close();
+                            }
                             break;
                         }
                         case "grant read": {
@@ -143,8 +143,12 @@ public class CommunicationThread extends Thread {
                             if(id == site.getSiteId()) {
                                 ++received;
                             }
-                            
+                            else {
+                                System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
+                            }
+
                             if(received == site.getQSize()) {
+                                System.out.println("unlocking " + site.getSiteId());
                                 synchronized(site.getLock()) {
                                     received = 0;
                                     site.getLock().notify();
@@ -158,8 +162,12 @@ public class CommunicationThread extends Thread {
                             if(id == site.getSiteId()) {
                                 ++received;
                             }
-                            
+                            else {
+                                System.out.println("received append grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
+                            }
+
                             if(received == site.getQSize()) {
+                                System.out.println("unlocking " + site.getSiteId());
                                 synchronized(site.getLock()) {
                                     received = 0;
                                     site.getLock().notify();
@@ -168,7 +176,7 @@ public class CommunicationThread extends Thread {
                             break;
                         }
                     }
-                }
+                
                 
                 mysocket.close();
             } catch (IOException e) {

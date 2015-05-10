@@ -1,14 +1,12 @@
 package cs171_proj3;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.util.List;
 import java.util.Random;
@@ -30,10 +28,10 @@ public class Site extends Thread {
     //for testing purposes
     private final String infile;
     
-    public Site(int port, String hostname, int id, int numberOfSites, String file) throws FileNotFoundException, UnsupportedEncodingException {
+    public Site(int port, String hostname, int id, int numberOfSites, String file) {
         this.serverPorts = new int[numberOfSites];
         for(int i = 0; i < numberOfSites; ++i) {
-            serverPorts[i] = 9991 + i;
+            serverPorts[i] = 9990 + i;
         }
         this.serverHostname = hostname;
         this.siteId = id;
@@ -73,7 +71,7 @@ public class Site extends Thread {
         server.start();
         try {
             BufferedReader file;
-            file = new BufferedReader(new FileReader(infile));
+            file = new BufferedReader(new InputStreamReader(new FileInputStream(infile)));
             String line = file.readLine();
             while(line != null) {
                 if(line.equals("Read")) {
@@ -90,9 +88,9 @@ public class Site extends Thread {
 //                    break;
 //                } 
                 line = file.readLine();
-            } // end of while(true)
+            } // while(line != null)
             file.close();
-            
+            System.out.println("Sending done from " + siteId);
             //send end to server
             Socket mysocket;
             mysocket = new Socket(serverHostname, serverPorts[siteId]);
@@ -108,13 +106,16 @@ public class Site extends Thread {
     @SuppressWarnings("CallToPrintStackTrace")
     private void read() {
         Socket mysocket;
-        myQuorum = randQuorum();
+        myQuorum = randQuorum();  
+        for(int i = 0; i < qSize; ++i)
+            System.out.println("read quorum[" + i + "] = " + myQuorum[i]);
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("request reply read " + siteId);
+                out.flush();
                 mysocket.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -124,14 +125,17 @@ public class Site extends Thread {
         synchronized(lock) {
             try {
                 //wait for granted read lock
+                System.out.println(siteId + " waiting");
                 lock.wait();
+                System.out.println(siteId + " unblocked");
                 //assuming port of log is 9989
                 mysocket = new Socket(serverHostname, 9989);
                 ObjectInputStream in;
                 ObjectOutputStream out;
                 out = new ObjectOutputStream(mysocket.getOutputStream());
                 in = new ObjectInputStream(mysocket.getInputStream());
-                out.writeChars("Read");
+                out.writeChars("Read ");
+                out.flush();
                 
                 List<String> log = (List<String>)in.readObject();
                 mysocket.close();
@@ -144,18 +148,38 @@ public class Site extends Thread {
                         System.out.print(item + ',');
                     }
                 }
-                
             } catch (InterruptedException | IOException | ClassNotFoundException ex) {
                 ex.printStackTrace();
             }    
         }
-        //send release messages??
+        //send release message to log
+        try {
+            mysocket = new Socket(serverHostname, 9989);
+            PrintWriter out;
+            ObjectInputStream in;
+            in = new ObjectInputStream(mysocket.getInputStream());
+            out = new PrintWriter(mysocket.getOutputStream());
+            out.write("Release releasing read lock");
+            out.flush();
+            //receive ack from log
+            String str = (String)in.readObject();
+            if(!str.equals("acknowledged")) {
+                    System.out.println("error");
+                    return;
+                }
+            mysocket.close();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        
+        //send release messages to sites
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("release reply read " + siteId);
+                out.flush();
                 mysocket.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -167,12 +191,15 @@ public class Site extends Thread {
     private void append(String line) {
         Socket mysocket;
         myQuorum = randQuorum();
+        for(int i = 0; i < qSize; ++i)
+            System.out.println("append quorum[" + i + "] = " + myQuorum[i]);
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("request reply append " + siteId);
+                out.flush();
                 mysocket.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -182,24 +209,55 @@ public class Site extends Thread {
         synchronized(lock) {
             try {
                 //wait for granted append lock
+                System.out.println(siteId + " waiting");
                 lock.wait();
+                System.out.println(siteId + " unblocked");
                 //assuming port of log is 9989
                 mysocket = new Socket(serverHostname, 9989);
                 ObjectOutputStream out;
+                ObjectInputStream in;
                 out = new ObjectOutputStream(mysocket.getOutputStream());
+                in = new ObjectInputStream(mysocket.getInputStream());
                 out.writeChars(line);
+                out.flush();
+                //receive ack from log
+                String str = (String)in.readObject();
+                if(!str.equals("acknowledged")) {
+                    System.out.println("error");
+                    return;
+                }
                 mysocket.close();
-            } catch (InterruptedException | IOException ex) {
+            } catch (InterruptedException | IOException | ClassNotFoundException ex) {
                 ex.printStackTrace();
             }
         }
-        //send release messages??
+        //send release message to log
+        try {
+            mysocket = new Socket(serverHostname, 9989);
+            PrintWriter out;
+            ObjectInputStream in;
+            in = new ObjectInputStream(mysocket.getInputStream());
+            out = new PrintWriter(mysocket.getOutputStream());
+            out.write("Release releasing append lock");
+            out.flush();
+            //receive ack from log
+            String str = (String)in.readObject();
+            if(!str.equals("acknowledged")) {
+                    System.out.println("error");
+                    return;
+                }
+            mysocket.close();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        //send release messages to sites
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("release reply append " + siteId);
+                out.flush();
                 mysocket.close();
             } catch (IOException e) {
                 e.printStackTrace();

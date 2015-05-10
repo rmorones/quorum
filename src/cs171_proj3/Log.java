@@ -15,9 +15,9 @@ import java.util.List;
  */
 public class Log extends Thread {
     
-    private static final String ACKNOWLEDGE_RELEASE = "Release acknowledged";
+    private static final String ACKNOWLEDGE = "acknowledged";
     private List<String> log = new ArrayList<>();
-    private int port;
+    private final int port;
     
     public Log(int port) {
         this.port = port;
@@ -57,12 +57,15 @@ public class Log extends Thread {
                             msg = msg.substring(0, 140);
                         }
                         log.add(msg);
+                        //send ack after communication with site
+                        outputStream.writeObject(ACKNOWLEDGE);
                         break;
                     case "Release":
                         //print release message
                         msg = message.substring(space + 1);
                         System.out.println(msg);
-                        outputStream.writeObject(ACKNOWLEDGE_RELEASE);
+                        //send ack after communication with site
+                        outputStream.writeObject(ACKNOWLEDGE);
                         break;
                     default:
                         break;

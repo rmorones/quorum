@@ -21,19 +21,23 @@ public class Main {
      * @throws java.lang.InterruptedException
      */
     public static void main(String[] args) throws FileNotFoundException, UnsupportedEncodingException, InterruptedException {
-
+        //start log thread
+        Log log = new Log(9989);
+        log.start();
+        
         List<Thread> sites = new ArrayList<>();
-        for(Integer i = 0; i < 1; ++i) {
+        for(Integer i = 0; i < N; ++i) {
+            Integer id = i + 1;
             int port = Integer.parseInt(PORT.replace("{}", i.toString()));
-            Site site = new Site(port, "localhost", i, N, infile.replace("{}", i.toString()));
+            Site site = new Site(port, "localhost", i, N, infile.replace("{}", id.toString()) );
             sites.add(site);
         }
         
-        for(int i = 0; i < 1;++i) {
+        for(int i = 0; i < N;++i) {
             sites.get(i).start();
         }
     
-        for(int i = 0; i < 1; ++i) {
+        for(int i = 0; i < N; ++i) {
             sites.get(i).join();
         }
     }
