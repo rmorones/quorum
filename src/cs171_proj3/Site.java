@@ -14,7 +14,7 @@ import java.util.Random;
 /**
  *
  * @author Ricardo Morones <rmorones@umail.ucsb.edu>
- * @author Chris Kim <chriskim@umail.ucsb.edu>
+ * @author Chris Kim <chriskim06@gmail.com>
  */
 public class Site extends Thread {
     private final int[] serverPorts;

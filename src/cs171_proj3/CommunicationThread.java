@@ -14,7 +14,7 @@ import java.util.Queue;
 /**
  *
  * @author Ricardo Morones <rmorones@umail.ucsb.edu>
- * @author Chris Kim <chriskim@umail.ucsb.edu>
+ * @author Chris Kim <chriskim06@gmail.com>
  */
 public class CommunicationThread extends Thread {
     private final int port;
