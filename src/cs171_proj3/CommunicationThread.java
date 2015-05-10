@@ -52,7 +52,7 @@ public class CommunicationThread extends Thread {
                 in = new BufferedReader(
                         new InputStreamReader(mysocket.getInputStream()));            
                 String input = in.readLine();
-                System.out.println("input " + input);
+                System.out.println("site " + site.getSiteId() + " input " + input);
                 if(input == null) {
                     continue;
                 }
@@ -79,7 +79,8 @@ public class CommunicationThread extends Thread {
                                     //send grant read id msg
                                     System.out.println(site.getSiteId() + " granting read to " + id);
                                     Socket siteSocket;
-                                    activeLocks.add(input.substring(secondspace + 1));
+                                    if(id != site.getSiteId())
+                                        activeLocks.add(input.substring(secondspace + 1));
                                     siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                                     PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                                     outSite.write("grant read " + id);
@@ -92,7 +93,8 @@ public class CommunicationThread extends Thread {
                                     //send grant append id msg
                                     System.out.println(site.getSiteId() + " granting append to " + id);
                                     Socket siteSocket;
-                                    activeLocks.add(input.substring(secondspace + 1));
+                                    if(id != site.getSiteId())
+                                        activeLocks.add(input.substring(secondspace + 1));
                                     siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                                     PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                                     outSite.write("grant append " + id);
@@ -194,13 +196,11 @@ public class CommunicationThread extends Thread {
     }//run()
 
     private boolean containsReadOnly(List<String> activeLocks) {
-//        for(String string : activeLocks) {
-//            if(string.contains("append")) {
-//                return false;
-//            }
-//        }
-//        return true;
-        return activeLocks.stream().noneMatch((string) -> (string.contains("append")));
-
+        for(String string : activeLocks) {
+            if(string.contains("append")) {
+                return false;
+            }
+        }
+        return true;
     }
 }
