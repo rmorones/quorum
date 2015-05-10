@@ -14,7 +14,7 @@ import java.util.Queue;
 /**
  *
  * @author Ricardo Morones <rmorones@umail.ucsb.edu>
- * @author Chris Kim <chriskim06@gmail.com>
+ * @author Chris Kim <chriskim@umail.ucsb.edu>
  */
 public class CommunicationThread extends Thread {
     private final int port;
@@ -52,130 +52,132 @@ public class CommunicationThread extends Thread {
                 in = new BufferedReader(
                         new InputStreamReader(mysocket.getInputStream()));            
                 String input = in.readLine();
-                System.out.println("input " + input);
+                System.out.println("site " + site.getSiteId() + " input " + input);
                 if(input == null) {
                     continue;
                 }
-                if(input.contains("DONE")) {
-                    ++expired;
-                    if(expired == site.getNumberOfSites()) {
-                        mysocket.close();
-                        break;
+                    if(input.contains("DONE")) {
+                        ++expired;
+                        if(expired == site.getNumberOfSites()) {
+                            mysocket.close();
+                            break;
+                        }
                     }
-                }
 
-                int firstspace = input.indexOf(" ");
-                int secondspace = input.indexOf(" ", firstspace + 1);
-                String comp = input.substring(0, secondspace);
-                System.out.println("comparing " + comp + " in switch");
-                switch(comp) {
-                    case "request reply": {
-                        //request reply read/append id
-                        int thirdspace = input.indexOf(" ", secondspace + 1);
-                        Integer id = Integer.parseInt(input.substring(thirdspace + 1));
-                        requestedLocks.add(input.substring(secondspace + 1));
-                        if(input.contains("read")) {
-                            if(activeLocks.isEmpty() || containsReadOnly(activeLocks)) {
-                                //send grant read id msg
-                                System.out.println(site.getSiteId() + " granting read to " + id);
-                                Socket siteSocket;
-                                activeLocks.add(input.substring(secondspace + 1));
-                                siteSocket = new Socket("localhost", site.getServerPorts()[id]);
-                                PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                                outSite.write("grant read " + id);
-                                outSite.flush();
-                                siteSocket.close();
-                            }
-                        }
-                        else {
-                            if(activeLocks.isEmpty()) {
-                                //send grant append id msg
-                                System.out.println(site.getSiteId() + " granting append to " + id);
-                                Socket siteSocket;
-                                activeLocks.add(input.substring(secondspace + 1));
-                                siteSocket = new Socket("localhost", site.getServerPorts()[id]);
-                                PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                                outSite.write("grant append " + id);
-                                outSite.flush();
-                                siteSocket.close();
-                            }
-                        }
-
-                        break;
-                    }
-                    case "release reply": {
-                        // release reply append/read id
-                        String str = requestedLocks.poll();
-                        if(str == null) {
-                            System.out.println("error requested locks is empty");
-                            return;
-                        }
-                        int index = activeLocks.indexOf(input.substring(secondspace + 1));
-                        if(index >= 0)
-                            activeLocks.remove(index);
-
-                        //check if there are more requests in queue
-                        str = requestedLocks.peek();
-                        if(str != null) {
-                            Integer id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
-                            Socket siteSocket;
-                            siteSocket = new Socket("localhost", site.getServerPorts()[id]);
-                            PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                            if(str.contains("append")) {
-                                if(activeLocks.isEmpty()) {
-                                    outSite.write("grant append " + id);
+                    int firstspace = input.indexOf(" ");
+                    int secondspace = input.indexOf(" ", firstspace + 1);
+                    String comp = input.substring(0, secondspace);
+                    System.out.println("comparing " + comp + " in switch");
+                    switch(comp) {
+                        case "request reply": {
+                            //request reply read/append id
+                            int thirdspace = input.indexOf(" ", secondspace + 1);
+                            Integer id = Integer.parseInt(input.substring(thirdspace + 1));
+                            requestedLocks.add(input.substring(secondspace + 1));
+                            if(input.contains("read")) {
+                                if(activeLocks.isEmpty() || containsReadOnly(activeLocks)) {
+                                    //send grant read id msg
+                                    System.out.println(site.getSiteId() + " granting read to " + id);
+                                    Socket siteSocket;
+                                    if(id != site.getSiteId())
+                                        activeLocks.add(input.substring(secondspace + 1));
+                                    siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                                    PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
+                                    outSite.write("grant read " + id);
                                     outSite.flush();
+                                    siteSocket.close();
                                 }
                             }
                             else {
-                                if(activeLocks.isEmpty() || containsReadOnly(activeLocks)) {
-                                    outSite.write("grant read " + id);
+                                if(activeLocks.isEmpty()) {
+                                    //send grant append id msg
+                                    System.out.println(site.getSiteId() + " granting append to " + id);
+                                    Socket siteSocket;
+                                    if(id != site.getSiteId())
+                                        activeLocks.add(input.substring(secondspace + 1));
+                                    siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                                    PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
+                                    outSite.write("grant append " + id);
                                     outSite.flush();
+                                    siteSocket.close();
                                 }
                             }
-                            siteSocket.close();
+                            
+                            break;
                         }
-                        break;
-                    }
-                    case "grant read": {
-                        //grant read id
-                        Integer id = Integer.parseInt(input.substring(secondspace + 1));
-                        if(id == site.getSiteId()) {
-                            ++received;
-                        }
-                        else {
-                            System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
-                        }
-
-                        if(received == site.getQSize()) {
-                            System.out.println("unlocking " + site.getSiteId());
-                            synchronized(site.getLock()) {
-                                received = 0;
-                                site.getLock().notify();
+                        case "release reply": {
+                            // release reply append/read id
+                            String str = requestedLocks.poll();
+                            if(str == null) {
+                                System.out.println("error requested locks is empty");
+                                return;
                             }
-                        }
-                        break;
-                    }
-                    case "grant append": {
-                        //grant append id
-                        Integer id = Integer.parseInt(input.substring(secondspace + 1));
-                        if(id == site.getSiteId()) {
-                            ++received;
-                        }
-                        else {
-                            System.out.println("received append grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
-                        }
+                            int index = activeLocks.indexOf(input.substring(secondspace + 1));
+                            if(index >= 0)
+                                activeLocks.remove(index);
 
-                        if(received == site.getQSize()) {
-                            System.out.println("unlocking " + site.getSiteId());
-                            synchronized(site.getLock()) {
-                                received = 0;
-                                site.getLock().notify();
+                            //check if there are more requests in queue
+                            str = requestedLocks.peek();
+                            if(str != null) {
+                                Integer id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
+                                Socket siteSocket;
+                                siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                                PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
+                                if(str.contains("append")) {
+                                    if(activeLocks.isEmpty()) {
+                                        outSite.write("grant append " + id);
+                                        outSite.flush();
+                                    }
+                                }
+                                else {
+                                    if(activeLocks.isEmpty() || containsReadOnly(activeLocks)) {
+                                        outSite.write("grant read " + id);
+                                        outSite.flush();
+                                    }
+                                }
+                                siteSocket.close();
                             }
+                            break;
                         }
-                        break;
+                        case "grant read": {
+                            //grant read id
+                            Integer id = Integer.parseInt(input.substring(secondspace + 1));
+                            if(id == site.getSiteId()) {
+                                ++received;
+                            }
+                            else {
+                                System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
+                            }
+
+                            if(received == site.getQSize()) {
+                                System.out.println("unlocking " + site.getSiteId());
+                                synchronized(site.getLock()) {
+                                    received = 0;
+                                    site.getLock().notify();
+                                }
+                            }
+                            break;
+                        }
+                        case "grant append": {
+                            //grant append id
+                            Integer id = Integer.parseInt(input.substring(secondspace + 1));
+                            if(id == site.getSiteId()) {
+                                ++received;
+                            }
+                            else {
+                                System.out.println("received append grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
+                            }
+
+                            if(received == site.getQSize()) {
+                                System.out.println("unlocking " + site.getSiteId());
+                                synchronized(site.getLock()) {
+                                    received = 0;
+                                    site.getLock().notify();
+                                }
+                            }
+                            break;
+                        }
                     }
-                }
                 
                 
                 mysocket.close();
@@ -194,13 +196,11 @@ public class CommunicationThread extends Thread {
     }//run()
 
     private boolean containsReadOnly(List<String> activeLocks) {
-//        for(String string : activeLocks) {
-//            if(string.contains("append")) {
-//                return false;
-//            }
-//        }
-//        return true;
-        return activeLocks.stream().noneMatch((string) -> (string.contains("append")));
-
+        for(String string : activeLocks) {
+            if(string.contains("append")) {
+                return false;
+            }
+        }
+        return true;
     }
 }
