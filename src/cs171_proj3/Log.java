@@ -70,6 +70,7 @@ public class Log extends Thread {
                         break;
                 }
                 outputStream.flush();
+                site.close();
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
