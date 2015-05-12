@@ -154,7 +154,7 @@ public class Site extends Thread {
             ObjectInputStream in;
             in = new ObjectInputStream(mysocket.getInputStream());
             out = new ObjectOutputStream(mysocket.getOutputStream());
-            out.writeObject("Release releasing read lock");
+            out.writeObject("Release ");
             out.flush();
             //receive ack from log
             String str = (String)in.readObject();
@@ -203,6 +203,7 @@ public class Site extends Thread {
             synchronized(lock) {
                 //wait for granted append lock
                 lock.wait();
+                System.out.println(siteId + " unblocked");
             }
             //assuming port of log is 9989
             mysocket = new Socket(serverHostname, 9989);
@@ -222,13 +223,15 @@ public class Site extends Thread {
         } catch (InterruptedException | IOException | ClassNotFoundException ex) {
             ex.printStackTrace();
         }
-        
+        System.out.println("ok 1");
         //send release message to log
         try {
             mysocket = new Socket(serverHostname, 9989);
             ObjectOutputStream out;
             ObjectInputStream in;
+            System.out.println("ok 2");
             in = new ObjectInputStream(mysocket.getInputStream());
+            System.out.println("ok 3");
             out = new ObjectOutputStream(mysocket.getOutputStream());
             out.writeObject("Release ");
             out.flush();
@@ -242,12 +245,14 @@ public class Site extends Thread {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
+        System.out.println("ok");
         //send release messages to sites
         for(int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
+                System.out.println("sending release to " + myQuorum[i]);
                 out.write("release reply append " + siteId);
                 out.flush();
                 mysocket.close();
@@ -258,16 +263,50 @@ public class Site extends Thread {
     }
     
     private int[] randQuorum() {
-        Random rand = new Random();
-        int[] retval = new int[qSize];
-        
-        retval[0] = siteId;
-        for(int i = 1; i < qSize; ++i) {
-            retval[i] = rand.nextInt(5);
-            while(retval[i] == siteId || retval[i] == retval[i-1])
-                retval[i] = rand.nextInt(5);
+//        Random rand = new Random();
+//        int[] retval = new int[qSize];
+//        
+//        retval[0] = siteId;
+//        for(int i = 1; i < qSize; ++i) {
+//            retval[i] = rand.nextInt(5);
+//            while(retval[i] == siteId || retval[i] == retval[i-1])
+//                retval[i] = rand.nextInt(5);
+//        }
+        int[] retval = null;
+//        switch(siteId) {
+//            case 0:
+//                retval = new int[] { siteId, 3, 2};
+//                break;
+//            case 1:
+//                retval = new int[] { siteId, 3, 2};
+//                break;
+//            case 2:
+//                retval = new int[] { siteId, 1, 4};
+//                break;
+//            case 3:
+//                retval = new int[] { siteId, 0, 2};
+//                break;
+//            case 4:
+//                retval = new int[] { siteId, 1, 2};
+//                break;
+//        }
+        switch(siteId) {
+            case 0:
+                retval = new int[] { siteId, 3, 2};
+                break;
+            case 1:
+                retval = new int[] { siteId, 4, 2};
+                break;
+            case 2:
+                retval = new int[] { siteId, 1, 4};
+                break;
+            case 3:
+                retval = new int[] { siteId, 0, 3};
+                break;
+            case 4:
+                retval = new int[] { siteId, 1, 2};
+                break;
         }
-        
         return retval;
     }
     

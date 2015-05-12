@@ -46,28 +46,35 @@ public class Log extends Thread {
                 int space = message.indexOf(" ");
                 String command = message.substring(0, space);
                 switch (command) {
-                    case "Read":
+                    case "Read": {
                         //read
+                        System.out.println("log reading");
                         outputStream.writeObject(log);
                         break;
-                    case "Append":
+                    }
+                    case "Append": {
                         //add message to log
                         msg = message.substring(space + 1);
                         if (msg.length() > 140) {
                             msg = msg.substring(0, 140);
                         }
+                        System.out.println("log appending " + msg);
                         log.add(msg);
                         //send ack after communication with site
                         outputStream.writeObject(ACKNOWLEDGE);
                         break;
-                    case "Release":
+                    }
+                    case "Release": {
                         //print release message
                         System.out.println(command);
                         //send ack after communication with site
                         outputStream.writeObject(ACKNOWLEDGE);
                         break;
-                    default:
+                    }
+                    default: {
+                        System.out.println("not ok");
                         break;
+                    }
                 }
                 outputStream.flush();
                 site.close();
