@@ -16,7 +16,7 @@ import java.util.List;
 public class Log extends Thread {
     
     private static final String ACKNOWLEDGE = "acknowledged";
-    private List<String> log = new ArrayList<>();
+    private final List<String> log = new ArrayList<>();
     private final int port;
     
     public Log(int port) {
@@ -46,13 +46,12 @@ public class Log extends Thread {
                 int space = message.indexOf(" ");
                 String command = message.substring(0, space);
                 switch (command) {
-                    case "Read": {
+                    case "Read":
                         //read
                         System.out.println("log reading");
                         outputStream.writeObject(log);
                         break;
-                    }
-                    case "Append": {
+                    case "Append":
                         //add message to log
                         msg = message.substring(space + 1);
                         if (msg.length() > 140) {
@@ -63,18 +62,15 @@ public class Log extends Thread {
                         //send ack after communication with site
                         outputStream.writeObject(ACKNOWLEDGE);
                         break;
-                    }
-                    case "Release": {
+                    case "Release":
                         //print release message
                         System.out.println(command);
                         //send ack after communication with site
                         outputStream.writeObject(ACKNOWLEDGE);
                         break;
-                    }
-                    default: {
+                    default:
                         System.out.println("not ok");
                         break;
-                    }
                 }
                 outputStream.flush();
                 site.close();

@@ -30,13 +30,13 @@ public class Site extends Thread {
     
     public Site(int port, String hostname, int id, int numberOfSites, String file) {
         this.serverPorts = new int[numberOfSites];
-        for(int i = 0; i < numberOfSites; ++i) {
+        for (int i = 0; i < numberOfSites; ++i) {
             serverPorts[i] = 9990 + i;
         }
         this.serverHostname = hostname;
         this.siteId = id;
         this.numberOfSites = numberOfSites;
-        for(int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; ++i) {
             this.myQuorum[i] = 0;
         }
         //for testing
@@ -74,17 +74,16 @@ public class Site extends Thread {
             file = new BufferedReader(new InputStreamReader(new FileInputStream(infile)));
             String line = file.readLine();
             while(line != null) {
-                if(line.equals("Read")) {
+                if (line.equals("Read")) {
                     read();
-                }
-                else if(line.startsWith("Append")) {
+                } else if (line.startsWith("Append")) {
                     String msg = line.substring(line.indexOf(" ") + 1);
                     if (msg.length() > 140) {
                         msg = msg.substring(0, 140);
                     }
                     append("Append " + msg);
                 }
-//                else if(line.equals("exit")) {
+//                else if (line.equals("exit")) {
 //                    break;
 //                } 
                 line = file.readLine();
@@ -107,7 +106,7 @@ public class Site extends Thread {
     private void read() {
         Socket mysocket;
         myQuorum = randQuorum();
-        for(int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -120,7 +119,7 @@ public class Site extends Thread {
             }
         }
         try {
-            synchronized(lock) {
+            synchronized (lock) {
                 //wait for granted read lock
                 lock.wait();
             }
@@ -133,14 +132,13 @@ public class Site extends Thread {
             out.writeObject("Read ");
             out.flush();
 
-            List<String> log = (List<String>)in.readObject();
+            List<String> log = (List<String>) in.readObject();
             mysocket.close();
 
-            for(String item : log) {
-                if(log.get(log.size() - 1).equals(item)) {
-                    System.out.print(item + '\n');
-                }
-                else {
+            for (String item : log) {
+                if (log.get(log.size() - 1).equals(item)) {
+                    System.out.println(item);
+                } else {
                     System.out.print(item + ',');
                 }
             }
@@ -157,18 +155,21 @@ public class Site extends Thread {
             out.writeObject("Release ");
             out.flush();
             //receive ack from log
-            String str = (String)in.readObject();
-            if(!str.equals("acknowledged")) {
+            String str = (String) in.readObject();
+            if (!str.equals("acknowledged")) {
                 System.out.println("error");
                 return;
             }
+            /**
+             * remove from active locks list
+             */
             mysocket.close();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
         
         //send release messages to sites
-        for(int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -186,7 +187,7 @@ public class Site extends Thread {
     private void append(String line) {
         Socket mysocket;
         myQuorum = randQuorum();
-        for(int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -200,7 +201,7 @@ public class Site extends Thread {
         }
         
         try {
-            synchronized(lock) {
+            synchronized (lock) {
                 //wait for granted append lock
                 lock.wait();
                 System.out.println(siteId + " unblocked");
@@ -214,8 +215,8 @@ public class Site extends Thread {
             out.writeObject(line);
             out.flush();
             //receive ack from log
-            String str = (String)in.readObject();
-            if(!str.equals("acknowledged")) {
+            String str = (String) in.readObject();
+            if (!str.equals("acknowledged")) {
                 System.out.println("error");
                 return;
             }
@@ -236,8 +237,8 @@ public class Site extends Thread {
             out.writeObject("Release ");
             out.flush();
             //receive ack from log
-            String str = (String)in.readObject();
-            if(!str.equals("acknowledged")) {
+            String str = (String) in.readObject();
+            if (!str.equals("acknowledged")) {
                 System.out.println("error");
                 return;
             }
@@ -247,7 +248,7 @@ public class Site extends Thread {
         }
         System.out.println("ok");
         //send release messages to sites
-        for(int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; ++i) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -267,7 +268,7 @@ public class Site extends Thread {
 //        int[] retval = new int[qSize];
 //        
 //        retval[0] = siteId;
-//        for(int i = 1; i < qSize; ++i) {
+//        for (int i = 1; i < qSize; ++i) {
 //            retval[i] = rand.nextInt(5);
 //            while(retval[i] == siteId || retval[i] == retval[i-1])
 //                retval[i] = rand.nextInt(5);
@@ -290,7 +291,7 @@ public class Site extends Thread {
 //                retval = new int[] { siteId, 1, 2};
 //                break;
 //        }
-        switch(siteId) {
+        switch (siteId) {
             case 0:
                 retval = new int[] { siteId, 3, 2};
                 break;
