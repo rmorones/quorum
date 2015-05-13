@@ -17,6 +17,10 @@ import java.util.List;
  * @author Chris Kim <chriskim06@gmail.com>
  */
 public class Site extends Thread {
+    private static final int[][] SET_QUORUMS = {
+        { 0, 3, 2 }, { 1, 4, 2 }, { 2, 1, 4 }, { 3, 0, 3 }, { 4, 1, 2 }
+    };
+    
     private final int[] serverPorts;
     private final String serverHostname;
     private final CommunicationThread server;
@@ -39,6 +43,7 @@ public class Site extends Thread {
         //for testing
         this.infile = infile;
         this.server = new CommunicationThread(port, this);
+        myQuorum = SET_QUORUMS[siteId];
     }
 
     public int getQSize() {
@@ -96,21 +101,17 @@ public class Site extends Thread {
     
     @SuppressWarnings("CallToPrintStackTrace")
     private void read() {
-        Socket mysocket;
-        myQuorum = randQuorum();
-        for (int i = 0; i < qSize; i++) {
-            try {
+        Socket mysocket, sitesocket;
+//        myQuorum = randQuorum();
+        try {
+            for (int i = 0; i < qSize; i++) {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("request reply read " + siteId);
                 out.flush();
                 mysocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-        }
-        try {
             synchronized (lock) {
                 //wait for granted read lock
                 lock.wait();
@@ -140,51 +141,24 @@ public class Site extends Thread {
                 return;
             }
             mysocket.close();
+            //send release messages to sites
+            for (int i = 0; i < qSize; i++) {
+                sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
+                PrintWriter siteout;
+                siteout = new PrintWriter(sitesocket.getOutputStream());
+                siteout.write("release reply read " + siteId);
+                siteout.flush();
+                sitesocket.close();
+            }
         } catch (InterruptedException | IOException | ClassNotFoundException ex) {
             ex.printStackTrace();
-        }
-        //send release message to log
-//        try {
-//            mysocket = new Socket(serverHostname, 9989);
-//            ObjectOutputStream out;
-//            ObjectInputStream in;
-//            in = new ObjectInputStream(mysocket.getInputStream());
-//            out = new ObjectOutputStream(mysocket.getOutputStream());
-//            out.writeObject("Release ");
-//            out.flush();
-//            //receive ack from log
-//            String str = (String) in.readObject();
-//            if (!str.equals("acknowledged")) {
-//                System.out.println("error");
-//                return;
-//            }
-//            /**
-//             * remove from active locks list
-//             */
-//            mysocket.close();
-//        } catch (IOException | ClassNotFoundException e) {
-//            e.printStackTrace();
-//        }
-        
-        //send release messages to sites
-        for (int i = 0; i < qSize; i++) {
-            try {
-                mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
-                PrintWriter out;
-                out = new PrintWriter(mysocket.getOutputStream());
-                out.write("release reply read " + siteId);
-                out.flush();
-                mysocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
     
     @SuppressWarnings("CallToPrintStackTrace")
     private void append(String line) {
         Socket mysocket;
-        myQuorum = randQuorum();
+//        myQuorum = randQuorum();
         for (int i = 0; i < qSize; i++) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
@@ -262,15 +236,6 @@ public class Site extends Thread {
     }
     
     private int[] randQuorum() {
-//        Random rand = new Random();
-//        int[] retval = new int[qSize];
-//        
-//        retval[0] = siteId;
-//        for (int i = 1; i < qSize; ++i) {
-//            retval[i] = rand.nextInt(5);
-//            while(retval[i] == siteId || retval[i] == retval[i-1])
-//                retval[i] = rand.nextInt(5);
-//        }
         int[] retval = null;
         switch (siteId) {
             case 0:

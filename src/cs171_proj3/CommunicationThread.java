@@ -72,34 +72,29 @@ public class CommunicationThread extends Thread {
                         //request reply read/append id
                         int thirdspace = input.indexOf(" ", secondspace + 1);
                         int id = Integer.parseInt(input.substring(thirdspace + 1));
+                        Socket siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                        PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                         if (input.contains("read") && !gaveWriteLock) { // grant a read request if no write locks
                             //send grant read id
-                            System.out.println("Site " + site.getSiteId() + ": granting read to " + id);
-                            Socket siteSocket;
+                            System.out.println("Site " + site.getSiteId() + ": granting read to site " + id);
                             if (id != site.getSiteId()) {
                                 activeLocks.add(input.substring(secondspace + 1));
                             }
-                            siteSocket = new Socket("localhost", site.getServerPorts()[id]);
-                            PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                             outSite.write("grant read " + id);
                             outSite.flush();
-                            siteSocket.close();
                         } else if (input.contains("append") && activeLocks.isEmpty()) {
                             //send grant append id
-                            System.out.println("Site " + site.getSiteId() + ": granting append to " + id);
-                            Socket siteSocket;
+                            System.out.println("Site " + site.getSiteId() + ": granting append to site " + id);
                             if (id != site.getSiteId()) {
                                 activeLocks.add(input.substring(secondspace + 1));
                             }
-                            siteSocket = new Socket("localhost", site.getServerPorts()[id]);
-                            PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                             outSite.write("grant append " + id);
                             outSite.flush();
-                            siteSocket.close();
                             gaveWriteLock = true;
                         } else {
                             requestedLocks.add(input.substring(secondspace + 1));
                         }
+                        siteSocket.close();
                         break;
                     }
                     case "release reply": {
