@@ -72,7 +72,8 @@ public class CommunicationThread extends Thread {
                         //request reply read/append id
                         int thirdspace = input.indexOf(" ", secondspace + 1);
                         int id = Integer.parseInt(input.substring(thirdspace + 1));
-                        Socket siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                        Socket siteSocket;
+                        siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                         PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                         if (input.contains("read") && !gaveWriteLock) { // grant a read request if no write locks
                             //send grant read id
@@ -103,17 +104,12 @@ public class CommunicationThread extends Thread {
                         if (cmd.equals("append")) {
                             gaveWriteLock = false;
                         }
-                        String str = requestedLocks.poll();
-                        if (str == null) {
-                            System.out.println("error requested locks is empty");
-                            return;
-                        }
                         int index = activeLocks.indexOf(input.substring(secondspace + 1));
                         if (index >= 0) {
                             System.out.println("released " + activeLocks.remove(index));
                         }
                         //check if there are more requests in queue
-                        str = requestedLocks.peek();
+                        String str = requestedLocks.peek();
                         if (str != null) {
                             int id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
                             Socket siteSocket;

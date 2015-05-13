@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class Site extends Thread {
     private static final int[][] SET_QUORUMS = {
-        { 0, 3, 2 }, { 1, 4, 2 }, { 2, 1, 4 }, { 3, 0, 3 }, { 4, 1, 2 }
+        { 0, 1, 2 }, { 1, 4, 3 }, { 2, 4, 0 }, { 3, 0, 1 }, { 4, 3, 2 }
     };
     
     private final int[] serverPorts;
@@ -102,7 +102,6 @@ public class Site extends Thread {
     @SuppressWarnings("CallToPrintStackTrace")
     private void read() {
         Socket mysocket, sitesocket;
-//        myQuorum = randQuorum();
         try {
             for (int i = 0; i < qSize; i++) {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
@@ -126,12 +125,17 @@ public class Site extends Thread {
             out.flush();
             //Read in log and print to stdout
             List<String> log = (List<String>) in.readObject();
-//            mysocket.close();
+            if (siteId == 2) {
             for (String item : log) {
                 System.out.println(item);
             }
             System.out.println();
+            }
+            mysocket.close();
             //Send release message to log thread
+            mysocket = new Socket(serverHostname, 9989);
+            out = new ObjectOutputStream(mysocket.getOutputStream());
+            in = new ObjectInputStream(mysocket.getInputStream());
             out.writeObject("Release ");
             out.flush();
             //receive ack from log
@@ -157,22 +161,16 @@ public class Site extends Thread {
     
     @SuppressWarnings("CallToPrintStackTrace")
     private void append(String line) {
-        Socket mysocket;
-//        myQuorum = randQuorum();
-        for (int i = 0; i < qSize; i++) {
-            try {
+        Socket mysocket, sitesocket;
+        try {
+            for (int i = 0; i < qSize; i++) {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("request reply append " + siteId);
                 out.flush();
                 mysocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-        }
-        
-        try {
             synchronized (lock) {
                 //wait for granted append lock
                 lock.wait();
@@ -192,69 +190,23 @@ public class Site extends Thread {
                 System.out.println("error");
                 return;
             }
+            //send release message
+            out.writeObject("Release ");
+            out.flush();
             mysocket.close();
+            //send release messages to sites
+            for (int i = 0; i < qSize; i++) {
+                sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
+                PrintWriter siteout;
+                siteout = new PrintWriter(sitesocket.getOutputStream());
+                System.out.println("sending release to " + myQuorum[i]);
+                siteout.write("release reply append " + siteId);
+                siteout.flush();
+                sitesocket.close();
+            }
         } catch (InterruptedException | IOException | ClassNotFoundException ex) {
             ex.printStackTrace();
         }
-        System.out.println("ok 1");
-        //send release message to log
-        try {
-            mysocket = new Socket(serverHostname, 9989);
-            ObjectOutputStream out;
-            ObjectInputStream in;
-            System.out.println("ok 2");
-            in = new ObjectInputStream(mysocket.getInputStream());
-            System.out.println("ok 3");
-            out = new ObjectOutputStream(mysocket.getOutputStream());
-            out.writeObject("Release ");
-            out.flush();
-            //receive ack from log
-            String str = (String) in.readObject();
-            if (!str.equals("acknowledged")) {
-                System.out.println("error");
-                return;
-            }
-            mysocket.close();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        System.out.println("ok");
-        //send release messages to sites
-        for (int i = 0; i < qSize; i++) {
-            try {
-                mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
-                PrintWriter out;
-                out = new PrintWriter(mysocket.getOutputStream());
-                System.out.println("sending release to " + myQuorum[i]);
-                out.write("release reply append " + siteId);
-                out.flush();
-                mysocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
-    private int[] randQuorum() {
-        int[] retval = null;
-        switch (siteId) {
-            case 0:
-                retval = new int[] { siteId, 3, 2};
-                break;
-            case 1:
-                retval = new int[] { siteId, 4, 2};
-                break;
-            case 2:
-                retval = new int[] { siteId, 1, 4};
-                break;
-            case 3:
-                retval = new int[] { siteId, 0, 3};
-                break;
-            case 4:
-                retval = new int[] { siteId, 1, 2};
-                break;
-        }
-        return retval;
     }
     
 }// end Class Site
