@@ -9,7 +9,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.List;
-import java.util.Random;
+//import java.util.Random;
 
 /**
  *
@@ -28,20 +28,16 @@ public class Site extends Thread {
     //for testing purposes
     private final String infile;
     
-    public Site(int port, String hostname, int id, int numberOfSites, String file) {
+    public Site(int port, String serverHostname, int siteId, int numberOfSites, String infile) {
         this.serverPorts = new int[numberOfSites];
-        for (int i = 0; i < numberOfSites; ++i) {
+        for (int i = 0; i < numberOfSites; i++) {
             serverPorts[i] = 9990 + i;
         }
-        this.serverHostname = hostname;
-        this.siteId = id;
+        this.serverHostname = serverHostname;
+        this.siteId = siteId;
         this.numberOfSites = numberOfSites;
-        for (int i = 0; i < qSize; ++i) {
-            this.myQuorum[i] = 0;
-        }
         //for testing
-        this.infile = file;
-        
+        this.infile = infile;
         this.server = new CommunicationThread(port, this);
     }
 
@@ -72,8 +68,8 @@ public class Site extends Thread {
         try {
             BufferedReader file;
             file = new BufferedReader(new InputStreamReader(new FileInputStream(infile)));
-            String line = file.readLine();
-            while(line != null) {
+            String line;
+            while((line = file.readLine()) != null) {
                 if (line.equals("Read")) {
                     read();
                 } else if (line.startsWith("Append")) {
@@ -83,10 +79,6 @@ public class Site extends Thread {
                     }
                     append("Append " + msg);
                 }
-//                else if (line.equals("exit")) {
-//                    break;
-//                } 
-                line = file.readLine();
             } // while(line != null)
             file.close();
             System.out.println("Sending done from " + siteId);
@@ -106,7 +98,7 @@ public class Site extends Thread {
     private void read() {
         Socket mysocket;
         myQuorum = randQuorum();
-        for (int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; i++) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -131,27 +123,14 @@ public class Site extends Thread {
             in = new ObjectInputStream(mysocket.getInputStream());
             out.writeObject("Read ");
             out.flush();
-
+            //Read in log and print to stdout
             List<String> log = (List<String>) in.readObject();
-            mysocket.close();
-
+//            mysocket.close();
             for (String item : log) {
-                if (log.get(log.size() - 1).equals(item)) {
-                    System.out.println(item);
-                } else {
-                    System.out.print(item + ',');
-                }
+                System.out.println(item);
             }
-        } catch (InterruptedException | IOException | ClassNotFoundException ex) {
-            ex.printStackTrace();
-        }
-        //send release message to log
-        try {
-            mysocket = new Socket(serverHostname, 9989);
-            ObjectOutputStream out;
-            ObjectInputStream in;
-            in = new ObjectInputStream(mysocket.getInputStream());
-            out = new ObjectOutputStream(mysocket.getOutputStream());
+            System.out.println();
+            //Send release message to log thread
             out.writeObject("Release ");
             out.flush();
             //receive ack from log
@@ -160,16 +139,35 @@ public class Site extends Thread {
                 System.out.println("error");
                 return;
             }
-            /**
-             * remove from active locks list
-             */
             mysocket.close();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+        } catch (InterruptedException | IOException | ClassNotFoundException ex) {
+            ex.printStackTrace();
         }
+        //send release message to log
+//        try {
+//            mysocket = new Socket(serverHostname, 9989);
+//            ObjectOutputStream out;
+//            ObjectInputStream in;
+//            in = new ObjectInputStream(mysocket.getInputStream());
+//            out = new ObjectOutputStream(mysocket.getOutputStream());
+//            out.writeObject("Release ");
+//            out.flush();
+//            //receive ack from log
+//            String str = (String) in.readObject();
+//            if (!str.equals("acknowledged")) {
+//                System.out.println("error");
+//                return;
+//            }
+//            /**
+//             * remove from active locks list
+//             */
+//            mysocket.close();
+//        } catch (IOException | ClassNotFoundException e) {
+//            e.printStackTrace();
+//        }
         
         //send release messages to sites
-        for (int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; i++) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -187,7 +185,7 @@ public class Site extends Thread {
     private void append(String line) {
         Socket mysocket;
         myQuorum = randQuorum();
-        for (int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; i++) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -248,7 +246,7 @@ public class Site extends Thread {
         }
         System.out.println("ok");
         //send release messages to sites
-        for (int i = 0; i < qSize; ++i) {
+        for (int i = 0; i < qSize; i++) {
             try {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
@@ -274,23 +272,6 @@ public class Site extends Thread {
 //                retval[i] = rand.nextInt(5);
 //        }
         int[] retval = null;
-//        switch(siteId) {
-//            case 0:
-//                retval = new int[] { siteId, 3, 2};
-//                break;
-//            case 1:
-//                retval = new int[] { siteId, 3, 2};
-//                break;
-//            case 2:
-//                retval = new int[] { siteId, 1, 4};
-//                break;
-//            case 3:
-//                retval = new int[] { siteId, 0, 2};
-//                break;
-//            case 4:
-//                retval = new int[] { siteId, 1, 2};
-//                break;
-//        }
         switch (siteId) {
             case 0:
                 retval = new int[] { siteId, 3, 2};

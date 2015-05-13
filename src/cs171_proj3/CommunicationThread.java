@@ -71,26 +71,22 @@ public class CommunicationThread extends Thread {
                     case "request reply": {
                         //request reply read/append id
                         int thirdspace = input.indexOf(" ", secondspace + 1);
-                        Integer id = Integer.parseInt(input.substring(thirdspace + 1));
-                        if (input.contains("read")) {
-                            if (activeLocks.isEmpty() || !gaveWriteLock) {
-                                //send grant read id
-                                System.out.println(site.getSiteId() + " granting read to " + id);
-                                Socket siteSocket;
-                                if (id != site.getSiteId()) {
-                                    activeLocks.add(input.substring(secondspace + 1));
-                                }
-                                siteSocket = new Socket("localhost", site.getServerPorts()[id]);
-                                PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                                outSite.write("grant read " + id);
-                                outSite.flush();
-                                siteSocket.close();
-                            } else {
-                                requestedLocks.add(input.substring(secondspace + 1));
+                        int id = Integer.parseInt(input.substring(thirdspace + 1));
+                        if (input.contains("read") && !gaveWriteLock) { // grant a read request if no write locks
+                            //send grant read id
+                            System.out.println("Site " + site.getSiteId() + ": granting read to " + id);
+                            Socket siteSocket;
+                            if (id != site.getSiteId()) {
+                                activeLocks.add(input.substring(secondspace + 1));
                             }
-                        } else if (activeLocks.isEmpty()) {
+                            siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                            PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
+                            outSite.write("grant read " + id);
+                            outSite.flush();
+                            siteSocket.close();
+                        } else if (input.contains("append") && activeLocks.isEmpty()) {
                             //send grant append id
-                            System.out.println(site.getSiteId() + " granting append to " + id);
+                            System.out.println("Site " + site.getSiteId() + ": granting append to " + id);
                             Socket siteSocket;
                             if (id != site.getSiteId()) {
                                 activeLocks.add(input.substring(secondspace + 1));
@@ -124,7 +120,7 @@ public class CommunicationThread extends Thread {
                         //check if there are more requests in queue
                         str = requestedLocks.peek();
                         if (str != null) {
-                            Integer id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
+                            int id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
                             Socket siteSocket;
                             siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                             PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
@@ -132,7 +128,7 @@ public class CommunicationThread extends Thread {
                                 outSite.write("grant append " + id);
                                 outSite.flush();
                                 gaveWriteLock = true;
-                            } else if (activeLocks.isEmpty() || !gaveWriteLock) {
+                            } else if (str.contains("read") && !gaveWriteLock) {
                                 outSite.write("grant read " + id);
                                 outSite.flush();
                             }
@@ -142,14 +138,14 @@ public class CommunicationThread extends Thread {
                     }
                     case "grant read": {
                         //grant read id
-                        Integer id = Integer.parseInt(input.substring(secondspace + 1));
+                        int id = Integer.parseInt(input.substring(secondspace + 1));
                         if (id == site.getSiteId()) {
                             ++received;
                         } else {
-                            System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
+                            System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id);
                         }
                         if (received == site.getQSize()) {
-                            System.out.println("Read lock obtained for site " + id.toString());
+                            System.out.println("Read lock obtained for site " + id);
                             synchronized (site.getLock()) {
                                 received = 0;
                                 site.getLock().notify();
@@ -159,14 +155,14 @@ public class CommunicationThread extends Thread {
                     }
                     case "grant append": {
                         //grant append id
-                        Integer id = Integer.parseInt(input.substring(secondspace + 1));
+                        int id = Integer.parseInt(input.substring(secondspace + 1));
                         if (id == site.getSiteId()) {
                             ++received;
                         } else {
-                            System.out.println("received append grant with different id:: " + site.getSiteId() + " ==> " + id.toString());
+                            System.out.println("received append grant with different id:: " + site.getSiteId() + " ==> " + id);
                         }
                         if (received == site.getQSize()) {
-                            System.out.println("Append lock obtained for site " + id.toString());
+                            System.out.println("Append lock obtained for site " + id);
                             synchronized (site.getLock()) {
                                 received = 0;
                                 site.getLock().notify();
