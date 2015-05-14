@@ -53,17 +53,17 @@ public class CommunicationThread extends Thread {
                 // Wait for a client to connect (blocking)
                 mysocket = serverSocket.accept();
                 in = new BufferedReader(
-                        new InputStreamReader(mysocket.getInputStream()));            
+                        new InputStreamReader(mysocket.getInputStream()));
                 String input = in.readLine();
                 if (input == null) {
                     continue;
                 }
                 if (input.contains("DONE")) {
-                    expired++;//site should send DONE to all comm. threads for below to be true
+                    expired++;
                     if (expired == site.getNumberOfSites()) {
                         mysocket.close();
+                        break;
                     }
-                    break;
                 }
 
                 int firstspace = input.indexOf(" ");
@@ -81,7 +81,7 @@ public class CommunicationThread extends Thread {
                         PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                         if (input.contains("read") && !gaveWriteLock) { // grant a read request if no write locks
                             //send grant read id
-                            System.out.println("Site " + site.getSiteId() + ": granting read to site " + id);
+//                            System.out.println("Site " + site.getSiteId() + ": granting read to site " + id);
 //                            locked = lockMessage;
                             outSite.write("grant read " + id);
                             outSite.flush();
@@ -94,8 +94,8 @@ public class CommunicationThread extends Thread {
                             gaveWriteLock = true;
                         } else {
                             if (hasHigherPriority(lockMessage)) {
-                                System.out.println("Site " + site.getSiteId() + ": lockMessage = " + locked
-                                        + ", \"" + input + "\"  -  send inquire");
+//                                System.out.println("Site " + site.getSiteId() + ": lockMessage = " + locked
+//                                        + ", \"" + input + "\"  -  send inquire");
                                 int lockID = Integer.parseInt(locked.substring(locked.indexOf(" ") + 1));
                                 Socket inquireSocket;
                                 inquireSocket = new Socket("localhost", site.getServerPorts()[lockID]);
@@ -201,6 +201,7 @@ public class CommunicationThread extends Thread {
               e.printStackTrace();
             }
         }
+        System.out.println("out of while loop");
         
         try {
             serverSocket.close();
@@ -223,7 +224,7 @@ public class CommunicationThread extends Thread {
     }
     
     /**
-     * Function to add or remove an event into the queue
+     * Function to add or remove an event into the queue and sort it
      * @param message the string to be inserted or deleted
      * @param flag    determines whether to use insert or delete
      */

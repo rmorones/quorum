@@ -92,7 +92,8 @@ public class Site extends Thread {
             mysocket = new Socket(serverHostname, serverPorts[siteId]);
             PrintWriter out;
             out = new PrintWriter(mysocket.getOutputStream());
-            out.write("DONE");
+            out.write("DONE    ");
+            out.flush();
             mysocket.close();
         } catch(IOException ex) {
             ex.printStackTrace();
@@ -149,7 +150,7 @@ public class Site extends Thread {
                 sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
-                siteout.write("release reply read " + siteId);
+                siteout.write("release read " + siteId);
                 siteout.flush();
                 sitesocket.close();
             }
@@ -173,7 +174,6 @@ public class Site extends Thread {
             synchronized (lock) {
                 //wait for granted append lock
                 lock.wait();
-                System.out.println(siteId + " unblocked");
             }
             //assuming port of log is 9989
             mysocket = new Socket(serverHostname, 9989);
@@ -183,15 +183,19 @@ public class Site extends Thread {
             in = new ObjectInputStream(mysocket.getInputStream());
             out.writeObject(line);
             out.flush();
+            mysocket.close();
+            //send release message
+            mysocket = new Socket(serverHostname, 9989);
+            out = new ObjectOutputStream(mysocket.getOutputStream());
+            in = new ObjectInputStream(mysocket.getInputStream());
+            out.writeObject("Release ");
+            out.flush();
             //receive ack from log
             String str = (String) in.readObject();
             if (!str.equals("acknowledged")) {
                 System.out.println("error");
                 return;
             }
-            //send release message
-            out.writeObject("Release ");
-            out.flush();
             mysocket.close();
             //send release messages to sites
             for (int i = 0; i < qSize; i++) {
