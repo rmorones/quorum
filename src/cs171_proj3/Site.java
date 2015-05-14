@@ -125,12 +125,10 @@ public class Site extends Thread {
             out.flush();
             //Read in log and print to stdout
             List<String> log = (List<String>) in.readObject();
-            if (siteId == 2) {
             for (String item : log) {
                 System.out.println(item);
             }
             System.out.println();
-            }
             mysocket.close();
             //Send release message to log thread
             mysocket = new Socket(serverHostname, 9989);
