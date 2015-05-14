@@ -110,17 +110,21 @@ public class CommunicationThread extends Thread {
                         int index = activeLocks.indexOf(input.substring(secondspace + 1));
                         if (index >= 0) {
                             System.out.println("released " + activeLocks.remove(index));
+                            if(!activeLocks.isEmpty())
+                                gaveWriteLock = true;
                         }
-                        String str = deadLocks.poll();
+                        String str = deadLocks.peek();
                         if(str != null) { //grants already receieved so just notify site
                             if (str.contains("append") && activeLocks.isEmpty()) {
                                 gaveWriteLock = true;
+                                str = deadLocks.remove();
                                 activeLocks.add(str);
                                 synchronized (site.getLock()) {
                                     received = 0;
                                     site.getLock().notify();
                                 }
                             } else if (str.contains("read") && !gaveWriteLock) {
+                                str = deadLocks.remove();
                                 activeLocks.add(str);
                                 synchronized (site.getLock()) {
                                     received = 0;
