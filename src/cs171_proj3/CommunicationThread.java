@@ -57,11 +57,11 @@ public class CommunicationThread extends Thread {
                     continue;
                 }
                 if (input.contains("DONE")) {
-                    ++expired;
+                    expired++;//site should send DONE to all comm. threads for below to be true
                     if (expired == site.getNumberOfSites()) {
                         mysocket.close();
-                        break;
                     }
+                    break;
                 }
 
                 int firstspace = input.indexOf(" ");
@@ -131,7 +131,7 @@ public class CommunicationThread extends Thread {
                         //grant read id
                         int id = Integer.parseInt(input.substring(secondspace + 1));
                         if (id == site.getSiteId()) {
-                            ++received;
+                            received++;
                         } else {
                             System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id);
                         }
@@ -148,7 +148,7 @@ public class CommunicationThread extends Thread {
                         //grant append id
                         int id = Integer.parseInt(input.substring(secondspace + 1));
                         if (id == site.getSiteId()) {
-                            ++received;
+                            received++;
                         } else {
                             System.out.println("received append grant with different id:: " + site.getSiteId() + " ==> " + id);
                         }
