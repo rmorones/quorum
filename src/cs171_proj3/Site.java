@@ -107,7 +107,7 @@ public class Site extends Thread {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
-                out.write("request reply read " + siteId);
+                out.write("request read " + siteId);
                 out.flush();
                 mysocket.close();
             }
@@ -125,6 +125,7 @@ public class Site extends Thread {
             out.flush();
             //Read in log and print to stdout
             List<String> log = (List<String>) in.readObject();
+            System.out.println("Site " + siteId + ":");
             for (String item : log) {
                 System.out.println(item);
             }
@@ -165,7 +166,7 @@ public class Site extends Thread {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
-                out.write("request reply append " + siteId);
+                out.write("request append " + siteId);
                 out.flush();
                 mysocket.close();
             }
@@ -197,8 +198,8 @@ public class Site extends Thread {
                 sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
-                System.out.println("sending release to " + myQuorum[i]);
-                siteout.write("release reply append " + siteId);
+//                System.out.println("sending release to " + myQuorum[i]);
+                siteout.write("release append " + siteId);
                 siteout.flush();
                 sitesocket.close();
             }
