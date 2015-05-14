@@ -110,8 +110,13 @@ public class CommunicationThread extends Thread {
                         int index = activeLocks.indexOf(input.substring(secondspace + 1));
                         if (index >= 0) {
                             System.out.println("released " + activeLocks.remove(index));
-                            if(!activeLocks.isEmpty())
-                                gaveWriteLock = true;
+                            if(!activeLocks.isEmpty()) {
+                                for(String locks : activeLocks) {
+                                    if(locks.contains("append")) {
+                                        gaveWriteLock = true;
+                                    }
+                                }
+                            }
                         }
                         String str = deadLocks.peek();
                         if(str != null) { //grants already receieved so just notify site
@@ -159,10 +164,10 @@ public class CommunicationThread extends Thread {
                                             site_2.close();
                                         }
                                     }
+                                    gaveWriteLock = true;
                                     System.out.println("Site " + site.getSiteId() + ": granting append to site " + id);
                                     outSite.write("grant append " + id);
                                     outSite.flush();
-                                    gaveWriteLock = true;
                                 } else if (str.contains("read") && !gaveWriteLock) {
                                     str = requestedLocks.remove();
                                     if(id != site.getSiteId()) {
