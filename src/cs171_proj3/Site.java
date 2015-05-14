@@ -9,6 +9,8 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 //import java.util.Random;
 
 /**
@@ -94,7 +96,8 @@ public class Site extends Thread {
             out = new PrintWriter(mysocket.getOutputStream());
             out.write("DONE");
             mysocket.close();
-        } catch(IOException ex) {
+            server.join();
+        } catch(IOException | InterruptedException ex) {
             ex.printStackTrace();
         }
     } // run()
@@ -114,6 +117,7 @@ public class Site extends Thread {
             synchronized (lock) {
                 //wait for granted read lock
                 lock.wait();
+                System.out.println(siteId + " unblocked");
             }
             //assuming port of log is 9989
             mysocket = new Socket(serverHostname, 9989);
@@ -148,6 +152,7 @@ public class Site extends Thread {
                 sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
+                System.out.println("sending read release to " + myQuorum[i]);
                 siteout.write("release reply read " + siteId);
                 siteout.flush();
                 sitesocket.close();
@@ -197,7 +202,7 @@ public class Site extends Thread {
                 sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
-                System.out.println("sending release to " + myQuorum[i]);
+                System.out.println("sending append release to " + myQuorum[i]);
                 siteout.write("release reply append " + siteId);
                 siteout.flush();
                 sitesocket.close();
