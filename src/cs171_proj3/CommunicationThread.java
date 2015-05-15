@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -22,15 +23,17 @@ public class CommunicationThread extends Thread {
     private final List<String> requestedLocks = new ArrayList<>();
     private int received;
     private int expired;
+    private String privateIP;
     private String locked = "";
     private boolean yielded = false;
     private boolean failed = false;
     
-    public CommunicationThread(int port, Site site) {
+    public CommunicationThread(int port, String privateIP, Site site) {
         this.port = port;
         this.site = site;
         this.received = 0;
         this.expired = 0;
+        this.privateIP = privateIP;
     }
     
     @Override 
@@ -41,7 +44,8 @@ public class CommunicationThread extends Thread {
         BufferedReader in;
         
         try {
-          serverSocket = new ServerSocket(port);
+          serverSocket = new ServerSocket();
+          serverSocket.bind(new InetSocketAddress(privateIP, port));
         } catch (IOException e) {
           e.printStackTrace();
           return;
@@ -59,7 +63,7 @@ public class CommunicationThread extends Thread {
                 }
                 if (input.contains("DONE")) {
                     expired++;
-                    if (expired == site.getNumberOfSites()) {
+                    if (expired == 5) {
                         mysocket.close();
                         break;
                     }
@@ -68,7 +72,6 @@ public class CommunicationThread extends Thread {
                 int firstspace = input.indexOf(" ");
                 int secondspace = input.indexOf(" ", firstspace + 1);
                 String lockMessage = input.substring(firstspace + 1);
-                String action = input.substring(firstspace + 1, secondspace);
                 String comp = input.substring(0, firstspace);
                 switch (comp) {
                     case "request": {
@@ -76,7 +79,7 @@ public class CommunicationThread extends Thread {
                         //id is the site requesting read/append
                         int id = Integer.parseInt(input.substring(secondspace + 1));
                         Socket siteSocket;
-                        siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                        siteSocket = new Socket(site.getIP(id), site.getServerPort());
                         PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                         if (input.contains("read") && !locked.contains("append")) { // grant a read request if no write locks
                             //send grant read id
@@ -85,7 +88,6 @@ public class CommunicationThread extends Thread {
                             outSite.flush();
                         } else if (input.contains("append") && locked.equals("")) {
                             //send grant append id
-                            System.out.println("Site " + site.getSiteId() + ": granting append to site " + id);
                             locked = lockMessage;
                             outSite.write("grant append " + id);
                             outSite.flush();
@@ -93,7 +95,7 @@ public class CommunicationThread extends Thread {
                             if (hasHigherPriority(lockMessage)) {
                                 int lockID = Integer.parseInt(locked.substring(locked.indexOf(" ") + 1));
                                 Socket inquireSocket;
-                                inquireSocket = new Socket("localhost", site.getServerPorts()[lockID]);
+                                inquireSocket = new Socket(site.getIP(lockID), site.getServerPort());
                                 PrintWriter outInquire = new PrintWriter(inquireSocket.getOutputStream(), true);
                                 outInquire.write("inquire " + id + " " + site.getSiteId());
                                 outInquire.flush();
@@ -116,7 +118,7 @@ public class CommunicationThread extends Thread {
                             String str = requestedLocks.get(0);
                             int id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
                             Socket siteSocket;
-                            siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                            siteSocket = new Socket(site.getIP(id), site.getServerPort());
                             PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                             if (str.contains("append") && locked.equals("")) {
                                 locked = str;
@@ -132,14 +134,9 @@ public class CommunicationThread extends Thread {
                         break;
                     }
                     case "grant": {
-                        //grant read id
+                        //grant read id test
                         failed = false;
-                        int id = Integer.parseInt(input.substring(secondspace + 1));
-                        if (id == site.getSiteId()) {
-                            received++;
-                        } else {
-                            System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id);
-                        }
+                        received++;
                         if (received == site.getQSize()) {
                             received = 0;
                             synchronized (site.getLock()) {
@@ -152,10 +149,9 @@ public class CommunicationThread extends Thread {
                         //inquire checkID sentFromID
                         int checkID = Integer.parseInt(input.substring(firstspace + 1, secondspace));
                         int sentFromID = Integer.parseInt(input.substring(secondspace + 1));
-//                        System.out.println("Site " + site.getSiteId() + ": received \"" + input + "\", " + locked);
                         if (failed || yielded) {
                             Socket inquireSocket;
-                            inquireSocket = new Socket("localhost", site.getServerPorts()[sentFromID]);
+                            inquireSocket = new Socket(site.getIP(sentFromID), site.getServerPort());
                             PrintWriter outInquire = new PrintWriter(inquireSocket.getOutputStream(), true);
                             outInquire.write("yield message " + site.getSiteId());
                             outInquire.flush();
@@ -168,10 +164,9 @@ public class CommunicationThread extends Thread {
                         if (!requestedLocks.isEmpty()) {
                             locked = "";
                             String str = requestedLocks.get(0);
-                            System.out.println("Site " + site.getSiteId() + ": got yield, " + str);
                             int id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
                             Socket siteSocket;
-                            siteSocket = new Socket("localhost", site.getServerPorts()[id]);
+                            siteSocket = new Socket(site.getIP(id), site.getServerPort());
                             PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
                             if (str.contains("append") && locked.equals("")) {
                                 locked = str;
@@ -194,7 +189,6 @@ public class CommunicationThread extends Thread {
               e.printStackTrace();
             }
         }
-        System.out.println("out of while loop");
         
         try {
             serverSocket.close();
@@ -239,6 +233,10 @@ public class CommunicationThread extends Thread {
             }
             
         });
+    }
+    
+    private static void main(String[] args) {
+        //
     }
     
 }

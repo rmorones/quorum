@@ -1,8 +1,12 @@
 package cs171_proj3;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -17,11 +21,13 @@ public class Log extends Thread {
     
     private static final String ACKNOWLEDGE = "acknowledged";
     private final List<String> log = new ArrayList<>();
-    private final int port;
+    private int port;
     private int expired;
+    private String privateIP;
+    private String publicIP;
     
-    public Log(int port) {
-        this.port = port;
+    public Log() {
+        readConfig();
         this.expired = 0;
     }
     
@@ -33,7 +39,8 @@ public class Log extends Thread {
         ObjectInputStream inputStream;
         ObjectOutputStream outputStream;
         try {
-            serverSocket = new ServerSocket(port);
+            serverSocket = new ServerSocket();
+            serverSocket.bind(new InetSocketAddress(privateIP, port));
         } catch (IOException e) {
             e.printStackTrace();
             return;
@@ -87,6 +94,38 @@ public class Log extends Thread {
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
+        }
+    }
+    
+    private void readConfig() {
+        BufferedReader file;
+        try {
+            file = new BufferedReader(new InputStreamReader(new FileInputStream("config.txt")));
+            String line;
+            int i = 0;
+            while ((line = file.readLine()) != null) {
+                int space = line.indexOf(" ");
+                String ip = line.substring(0, space);
+                int portNum = Integer.parseInt(line.substring(space + 1));
+                if (i == 6) {
+                    port = portNum;
+                    publicIP = ip;
+                } else if (i == 7) {
+                    privateIP = ip;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    private static void main(String[] args) {
+        Log log = new Log();
+        log.start();
+        try {
+            log.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
     

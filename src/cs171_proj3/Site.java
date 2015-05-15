@@ -9,7 +9,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.List;
-//import java.util.Random;
+import java.util.Random;
 
 /**
  *
@@ -17,41 +17,31 @@ import java.util.List;
  * @author Chris Kim <chriskim06@gmail.com>
  */
 public class Site extends Thread {
-    private static final int[][] SET_QUORUMS = {
-        { 0, 1, 2 }, { 1, 4, 3 }, { 2, 4, 0 }, { 3, 0, 1 }, { 4, 3, 2 }
-    };
     
-    private final int[] serverPorts;
-    private final String serverHostname;
+    private int portNum;
+    private String[] publicIPList = new String[6];
+    private String privateIP;
     private final CommunicationThread server;
     private final Object lock = new Object();
-    private final int siteId;
-    private final int numberOfSites;
+    private int siteId = 100;
     private final int qSize = 3;
     private int[] myQuorum = new int[qSize];
-    //for testing purposes
-    private final String infile;
     
-    public Site(int port, String serverHostname, int siteId, int numberOfSites, String infile) {
-        this.serverPorts = new int[numberOfSites];
-        for (int i = 0; i < numberOfSites; i++) {
-            serverPorts[i] = 9990 + i;
-        }
-        this.serverHostname = serverHostname;
-        this.siteId = siteId;
-        this.numberOfSites = numberOfSites;
-        //for testing
-        this.infile = infile;
-        this.server = new CommunicationThread(port, this);
-        myQuorum = SET_QUORUMS[siteId];
+    public Site() {
+        readConfig();
+        this.server = new CommunicationThread(portNum, privateIP, this);
     }
 
     public int getQSize() {
         return qSize;
     }
     
-    public int[] getServerPorts() {
-        return serverPorts;
+    public int getServerPort() {
+        return portNum;
+    }
+    
+    public String getIP(int index) {
+        return publicIPList[index];
     }
     
     public Object getLock() {
@@ -61,20 +51,17 @@ public class Site extends Thread {
     public int getSiteId() {
         return siteId;
     }
-
-    public int getNumberOfSites() {
-        return numberOfSites;
-    }
     
     @Override
     @SuppressWarnings("CallToPrintStackTrace")
     public void run() {
         server.start();
+        randomQuorum();
         try {
-            BufferedReader file;
-            file = new BufferedReader(new InputStreamReader(new FileInputStream(infile)));
+            BufferedReader input;
+            input = new BufferedReader(new InputStreamReader(System.in));
             String line;
-            while((line = file.readLine()) != null) {
+            while((line = input.readLine()) != null) {
                 if (line.equals("Read")) {
                     read();
                 } else if (line.startsWith("Append")) {
@@ -83,14 +70,15 @@ public class Site extends Thread {
                         msg = msg.substring(0, 140);
                     }
                     append("Append " + msg);
+                } else {
+                    System.out.println("Error");
                 }
             } // while(line != null)
-            file.close();
-            System.out.println("Sending done from " + siteId);
+            input.close();
             //send end to server
-            for(int i = 0; i < serverPorts.length; i++) {
+            for(int i = 0; i < 5; i++) {
                 Socket mysocket;
-                mysocket = new Socket(serverHostname, serverPorts[i]);
+                mysocket = new Socket(publicIPList[i], portNum);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream(), true);
                 out.write("DONE    ");
@@ -98,7 +86,7 @@ public class Site extends Thread {
                 mysocket.close();
             }
             Socket mysocket;
-            mysocket = new Socket(serverHostname, 9989);
+            mysocket = new Socket(publicIPList[5], portNum);
             ObjectOutputStream out;
             out = new ObjectOutputStream(mysocket.getOutputStream());
             out.writeObject("DONE  ");
@@ -112,10 +100,11 @@ public class Site extends Thread {
     
     @SuppressWarnings("CallToPrintStackTrace")
     private void read() {
+//        randomQuorum();
         Socket mysocket, sitesocket;
         try {
             for (int i = 0; i < qSize; i++) {
-                mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
+                mysocket = new Socket(publicIPList[i], portNum);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("request read " + siteId);
@@ -126,8 +115,8 @@ public class Site extends Thread {
                 //wait for granted read lock
                 lock.wait();
             }
-            //assuming port of log is 9989
-            mysocket = new Socket(serverHostname, 9989);
+            //assuming port of log is portNum
+            mysocket = new Socket(publicIPList[5], portNum);
             ObjectInputStream in;
             ObjectOutputStream out;
             out = new ObjectOutputStream(mysocket.getOutputStream());
@@ -136,14 +125,13 @@ public class Site extends Thread {
             out.flush();
             //Read in log and print to stdout
             List<String> log = (List<String>) in.readObject();
-            System.out.println("Site " + siteId + ":");
             for (String item : log) {
                 System.out.println(item);
             }
             System.out.println();
             mysocket.close();
             //Send release message to log thread
-            mysocket = new Socket(serverHostname, 9989);
+            mysocket = new Socket(publicIPList[5], portNum);
             out = new ObjectOutputStream(mysocket.getOutputStream());
             in = new ObjectInputStream(mysocket.getInputStream());
             out.writeObject("Release ");
@@ -151,13 +139,12 @@ public class Site extends Thread {
             //receive ack from log
             String str = (String) in.readObject();
             if (!str.equals("acknowledged")) {
-                System.out.println("error");
                 return;
             }
             mysocket.close();
             //send release messages to sites
             for (int i = 0; i < qSize; i++) {
-                sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
+                sitesocket = new Socket(publicIPList[i], portNum);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
                 siteout.write("release read " + siteId);
@@ -171,10 +158,11 @@ public class Site extends Thread {
     
     @SuppressWarnings("CallToPrintStackTrace")
     private void append(String line) {
+//        randomQuorum();
         Socket mysocket, sitesocket;
         try {
             for (int i = 0; i < qSize; i++) {
-                mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
+                mysocket = new Socket(publicIPList[i], portNum);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
                 out.write("request append " + siteId);
@@ -185,8 +173,8 @@ public class Site extends Thread {
                 //wait for granted append lock
                 lock.wait();
             }
-            //assuming port of log is 9989
-            mysocket = new Socket(serverHostname, 9989);
+            //assuming port of log is portNum
+            mysocket = new Socket(publicIPList[5], portNum);
             ObjectOutputStream out;
             ObjectInputStream in;
             out = new ObjectOutputStream(mysocket.getOutputStream());
@@ -195,7 +183,7 @@ public class Site extends Thread {
             out.flush();
             mysocket.close();
             //send release message
-            mysocket = new Socket(serverHostname, 9989);
+            mysocket = new Socket(publicIPList[5], portNum);
             out = new ObjectOutputStream(mysocket.getOutputStream());
             in = new ObjectInputStream(mysocket.getInputStream());
             out.writeObject("Release ");
@@ -203,22 +191,67 @@ public class Site extends Thread {
             //receive ack from log
             String str = (String) in.readObject();
             if (!str.equals("acknowledged")) {
-                System.out.println("error");
                 return;
             }
             mysocket.close();
             //send release messages to sites
             for (int i = 0; i < qSize; i++) {
-                sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
+                sitesocket = new Socket(publicIPList[i], portNum);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
-//                System.out.println("sending release to " + myQuorum[i]);
                 siteout.write("release append " + siteId);
                 siteout.flush();
                 sitesocket.close();
             }
         } catch (InterruptedException | IOException | ClassNotFoundException ex) {
             ex.printStackTrace();
+        }
+    }
+    
+    private void randomQuorum() {
+        myQuorum[0] = siteId;
+        Random random = new Random();
+        int num;
+        for (int i = 1; i < 3; i++) {
+            myQuorum[i] = random.nextInt(5);
+            while (myQuorum[i] == siteId || myQuorum[i] == myQuorum[i - 1]) {
+                myQuorum[i] = random.nextInt(5);
+            }
+        }
+    }
+    
+    private void readConfig() {
+        BufferedReader file;
+        try {
+            file = new BufferedReader(new InputStreamReader(new FileInputStream("config.txt")));
+            String line;
+            int i = 0;
+            while ((line = file.readLine()) != null) {
+                int space = line.indexOf(" ");
+                String ip = line.substring(0, space);
+                portNum = Integer.parseInt(line.substring(space + 1));
+                if (siteId == 100) {
+                    siteId = Integer.parseInt(line);
+                }
+                if (i != 6) {
+                    publicIPList[i] = ip;
+                } else {
+                    privateIP = ip;
+                }
+                i++;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    private static void main(String[] args) {
+        Site site = new Site();
+        site.start();
+        try {
+            site.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
     
