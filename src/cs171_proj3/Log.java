@@ -18,9 +18,11 @@ public class Log extends Thread {
     private static final String ACKNOWLEDGE = "acknowledged";
     private final List<String> log = new ArrayList<>();
     private final int port;
+    private int expired;
     
     public Log(int port) {
         this.port = port;
+        this.expired = 0;
     }
     
     @Override
@@ -67,6 +69,14 @@ public class Log extends Thread {
                         System.out.println("Log: Release");
                         //send ack after communication with site
                         outputStream.writeObject(ACKNOWLEDGE);
+                        break;
+                    case "DONE":
+                        expired++;
+                        if(expired == 5) {
+                            site.close();
+                            serverSocket.close();
+                            System.exit(0);
+                        }
                         break;
                     default:
                         System.out.println("Log: not ok");
