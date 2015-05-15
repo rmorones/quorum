@@ -22,8 +22,7 @@ public class CommunicationThread extends Thread {
     private final List<String> requestedLocks = new ArrayList<>();
     private int received;
     private int expired;
-    private String locked = null;
-    private boolean gaveWriteLock = false;
+    private String locked = "";
     private boolean yielded = false;
     private boolean failed = false;
     
@@ -79,23 +78,19 @@ public class CommunicationThread extends Thread {
                         Socket siteSocket;
                         siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                         PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                        if (input.contains("read") && !gaveWriteLock) { // grant a read request if no write locks
+                        if (input.contains("read") && !locked.contains("append")) { // grant a read request if no write locks
                             //send grant read id
-//                            System.out.println("Site " + site.getSiteId() + ": granting read to site " + id);
-//                            locked = lockMessage;
+                            locked = lockMessage;
                             outSite.write("grant read " + id);
                             outSite.flush();
-                        } else if (input.contains("append") && !gaveWriteLock) {
+                        } else if (input.contains("append") && locked.equals("")) {
                             //send grant append id
                             System.out.println("Site " + site.getSiteId() + ": granting append to site " + id);
                             locked = lockMessage;
                             outSite.write("grant append " + id);
                             outSite.flush();
-                            gaveWriteLock = true;
-                        } else {
+                        } else if (!locked.equals("")) {
                             if (hasHigherPriority(lockMessage)) {
-//                                System.out.println("Site " + site.getSiteId() + ": lockMessage = " + locked
-//                                        + ", \"" + input + "\"  -  send inquire");
                                 int lockID = Integer.parseInt(locked.substring(locked.indexOf(" ") + 1));
                                 Socket inquireSocket;
                                 inquireSocket = new Socket("localhost", site.getServerPorts()[lockID]);
@@ -114,12 +109,8 @@ public class CommunicationThread extends Thread {
                     }
                     case "release": {
                         // release append/read id
-                        if (action.equals("append")) {
-                            gaveWriteLock = false;
-                        }
-                        if (requestedLocks.contains(lockMessage)) {
-                            editRequestQueue(lockMessage, 0);
-                        }
+                        locked = "";
+                        editRequestQueue(lockMessage, 0);
                         //check if there are more requests in queue
                         if (!requestedLocks.isEmpty()) {
                             String str = requestedLocks.get(0);
@@ -127,11 +118,12 @@ public class CommunicationThread extends Thread {
                             Socket siteSocket;
                             siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                             PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                            if (str.contains("append") && !gaveWriteLock) {
+                            if (str.contains("append") && locked.equals("")) {
+                                locked = str;
                                 outSite.write("grant append " + id);
                                 outSite.flush();
-                                gaveWriteLock = true;
-                            } else if (str.contains("read") && !gaveWriteLock) {
+                            } else if (str.contains("read") && !locked.contains("append")) {
+                                locked = str;
                                 outSite.write("grant read " + id);
                                 outSite.flush();
                             }
@@ -141,7 +133,6 @@ public class CommunicationThread extends Thread {
                     }
                     case "grant": {
                         //grant read id
-                        yielded = false;
                         failed = false;
                         int id = Integer.parseInt(input.substring(secondspace + 1));
                         if (id == site.getSiteId()) {
@@ -150,8 +141,8 @@ public class CommunicationThread extends Thread {
                             System.out.println("received read grant with different id:: " + site.getSiteId() + " ==> " + id);
                         }
                         if (received == site.getQSize()) {
+                            received = 0;
                             synchronized (site.getLock()) {
-                                received = 0;
                                 site.getLock().notify();
                             }
                         }
@@ -173,19 +164,21 @@ public class CommunicationThread extends Thread {
                         }
                     }
                     case "yield": {
+                        yielded = false;
                         if (!requestedLocks.isEmpty()) {
-                            gaveWriteLock = false;
+                            locked = "";
                             String str = requestedLocks.get(0);
-//                            System.out.println("Site " + site.getSiteId() + ": got yield, " + str);
+                            System.out.println("Site " + site.getSiteId() + ": got yield, " + str);
                             int id = Integer.parseInt(str.substring(str.indexOf(" ") + 1));
                             Socket siteSocket;
                             siteSocket = new Socket("localhost", site.getServerPorts()[id]);
                             PrintWriter outSite = new PrintWriter(siteSocket.getOutputStream(), true);
-                            if (str.contains("append") && !gaveWriteLock) {
+                            if (str.contains("append") && locked.equals("")) {
+                                locked = str;
                                 outSite.write("grant append " + id);
                                 outSite.flush();
-                                gaveWriteLock = true;
-                            } else if (str.contains("read") && !gaveWriteLock) {
+                            } else if (str.contains("read") && !locked.contains("append")) {
+                                locked = str;
                                 outSite.write("grant read " + id);
                                 outSite.flush();
                             }
@@ -229,7 +222,7 @@ public class CommunicationThread extends Thread {
      * @param flag    determines whether to use insert or delete
      */
     private void editRequestQueue(String message, int flag) {
-        if (flag == 1) {
+        if (flag == 1 && !requestedLocks.contains(message)) {
             requestedLocks.add(message);
         } else {
             requestedLocks.remove(message);
