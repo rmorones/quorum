@@ -88,11 +88,21 @@ public class Site extends Thread {
             file.close();
             System.out.println("Sending done from " + siteId);
             //send end to server
+            for(int i = 0; i < serverPorts.length; i++) {
+                Socket mysocket;
+                mysocket = new Socket(serverHostname, serverPorts[i]);
+                PrintWriter out;
+                out = new PrintWriter(mysocket.getOutputStream(), true);
+                out.write("DONE    ");
+                out.flush();
+                mysocket.close();
+            }
             Socket mysocket;
-            mysocket = new Socket(serverHostname, serverPorts[siteId]);
-            PrintWriter out;
-            out = new PrintWriter(mysocket.getOutputStream());
-            out.write("DONE");
+            mysocket = new Socket(serverHostname, 9989);
+            ObjectOutputStream out;
+            out = new ObjectOutputStream(mysocket.getOutputStream());
+            out.writeObject("DONE  ");
+            out.flush();
             mysocket.close();
             server.join();
         } catch(IOException | InterruptedException ex) {
@@ -108,14 +118,13 @@ public class Site extends Thread {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
-                out.write("request reply read " + siteId);
+                out.write("request read " + siteId);
                 out.flush();
                 mysocket.close();
             }
             synchronized (lock) {
                 //wait for granted read lock
                 lock.wait();
-                System.out.println(siteId + " unblocked");
             }
             //assuming port of log is 9989
             mysocket = new Socket(serverHostname, 9989);
@@ -127,6 +136,7 @@ public class Site extends Thread {
             out.flush();
             //Read in log and print to stdout
             List<String> log = (List<String>) in.readObject();
+            System.out.println("Site " + siteId + ":");
             for (String item : log) {
                 System.out.println(item);
             }
@@ -150,8 +160,7 @@ public class Site extends Thread {
                 sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
-                System.out.println("sending read release to " + myQuorum[i]);
-                siteout.write("release reply read " + siteId);
+                siteout.write("release read " + siteId);
                 siteout.flush();
                 sitesocket.close();
             }
@@ -168,14 +177,13 @@ public class Site extends Thread {
                 mysocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter out;
                 out = new PrintWriter(mysocket.getOutputStream());
-                out.write("request reply append " + siteId);
+                out.write("request append " + siteId);
                 out.flush();
                 mysocket.close();
             }
             synchronized (lock) {
                 //wait for granted append lock
                 lock.wait();
-                System.out.println(siteId + " unblocked");
             }
             //assuming port of log is 9989
             mysocket = new Socket(serverHostname, 9989);
@@ -185,23 +193,27 @@ public class Site extends Thread {
             in = new ObjectInputStream(mysocket.getInputStream());
             out.writeObject(line);
             out.flush();
+            mysocket.close();
+            //send release message
+            mysocket = new Socket(serverHostname, 9989);
+            out = new ObjectOutputStream(mysocket.getOutputStream());
+            in = new ObjectInputStream(mysocket.getInputStream());
+            out.writeObject("Release ");
+            out.flush();
             //receive ack from log
             String str = (String) in.readObject();
             if (!str.equals("acknowledged")) {
                 System.out.println("error");
                 return;
             }
-            //send release message
-            out.writeObject("Release ");
-            out.flush();
             mysocket.close();
             //send release messages to sites
             for (int i = 0; i < qSize; i++) {
                 sitesocket = new Socket(serverHostname, serverPorts[myQuorum[i]]);
                 PrintWriter siteout;
                 siteout = new PrintWriter(sitesocket.getOutputStream());
-                System.out.println("sending append release to " + myQuorum[i]);
-                siteout.write("release reply append " + siteId);
+//                System.out.println("sending release to " + myQuorum[i]);
+                siteout.write("release append " + siteId);
                 siteout.flush();
                 sitesocket.close();
             }

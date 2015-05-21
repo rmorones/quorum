@@ -1,6 +1,3 @@
 Append Im site 4
-Read
 Append Hello
 Append hi
-Read
-Read
